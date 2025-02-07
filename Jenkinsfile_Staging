@@ -1,0 +1,78 @@
+def COLOR_MAP = [
+	'SUCCESS': 'good',
+	'FAILURE': 'danger',
+	'IN_PROGRESS': '#439FE0'
+]
+
+pipeline {
+    agent any
+	environment {
+		EXCLUDE_CMD = '--exclude ".git/*"  --exclude "aws/*"  --exclude "auto_gcm/*"  --exclude "uploads/"  --exclude "captcha/"  --exclude "public/order_process_bulkbuyer/translate/"  --exclude "public/order_process_bulkbuyer/translate_msite/"  --exclude "web.config" --exclude "node_modules/*"  --exclude "logs/"  --exclude "log/"'
+	}
+	stages {
+
+		stage('Start') {
+            steps {
+                script {
+                    slackSend (
+                        channel: "#jenkins-notifications",
+                        attachments: [
+                            [
+                                color: COLOR_MAP['IN_PROGRESS'],
+                                text: "${env.JOB_NAME} build ${env.BUILD_NUMBER} has started by ${env.BUILD_USER}.\nCheck progress at: (${env.BUILD_URL})."
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+		stage("Upload Files to SERVER") {
+			steps {
+				sh 'pwd'
+				sh "rsync -avze 'ssh -i "+env.AUTH_KEY_LOCATION + params.pem_file+"' ./ "+params.server_user_ip+":"+params.app_location_in_server+" " + env.EXCLUDE_CMD
+			}
+		}
+
+
+
+		stage("Run API Test in DEBUG mode") {
+			steps {
+				sh 'pwd' 
+			}
+		}
+
+
+		stage ("Deploy Changes with New Release") {
+			steps {
+				sh 'sed -e "s#{APP_LOCATION_IN_SERVER}#'+params.app_location_in_server+'#g" -e "s/{BUILD_NUMBER}/'+env.BUILD_NUMBER+'/"  '+params.cicd_dir+'/'+params.deploy_script_release+' > '+params.cicd_dir+'/tmp_release.bat'
+				//sh 'ssh -tt -i ' + env.AUTH_KEY_LOCATION + params.pem_file+' ' + params.server_user_ip + ' < '+params.cicd_dir+'/tmp_release.bat'
+			}
+		}
+	}
+
+
+	post {
+		success {
+			echo "Good Bye!!"
+			emailext body: "${env.JOB_NAME} build ${env.BUILD_NUMBER} is a <b>${currentBuild.currentResult}</b>.\n Pipeline log available <a href=\"${env.BUILD_URL}/console\">here</a>", subject: '${DEFAULT_SUBJECT}', to: params.email_recipient
+		}
+		failure {
+			echo "Running Restore"
+			sh 'sed -e "s#{APP_LOCATION_IN_SERVER}#'+params.app_location_in_server+'#g" '+params.cicd_dir+'/'+params.deploy_script_failure+' > '+params.cicd_dir+'/tmp_failure.bat'
+			sh 'cat '+params.cicd_dir+'/tmp_failure.bat'
+			sh 'ssh -i ' + env.AUTH_KEY_LOCATION + params.pem_file+' ' + params.server_user_ip + ' < '+params.cicd_dir+'/tmp_failure.bat'
+			emailext body: '${DEFAULT_CONTENT}', subject: '${DEFAULT_SUBJECT}', to: params.email_recipient
+		}
+
+		always {
+    			echo 'Slack Notifications'
+    			slackSend (
+        		channel: "#jenkins-notifications",
+        		color: COLOR_MAP[currentBuild.currentResult],
+        		message: "*${currentBuild.currentResult}:* Job ${env.JOB_NAME} \n User: ${env.BUILD_USER} \n build ${env.BUILD_NUMBER} \n More info at: ${env.BUILD_URL}"
+    			)
+		}
+
+	}
+}
