@@ -1,0 +1,14 @@
+inputSet:
+  name: Build_hdas2_php_test_1744714460690-push-trigger-input-set
+  identifier: Build_hdas2_php_test_1744714460690pushtriggerinputset
+  orgIdentifier: default
+  projectIdentifier: RSPL
+  pipeline:
+    identifier: Build_hdas2_php_test_1744714460690
+    properties:
+      ci:
+        codebase:
+          build:
+            type: branch
+            spec:
+              branch: <+trigger.branch>
