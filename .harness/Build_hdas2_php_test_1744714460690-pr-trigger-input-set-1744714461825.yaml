@@ -1,0 +1,14 @@
+inputSet:
+  name: Build_hdas2_php_test_1744714460690-pr-trigger-input-set
+  identifier: Build_hdas2_php_test_1744714460690prtriggerinputset
+  orgIdentifier: default
+  projectIdentifier: RSPL
+  pipeline:
+    identifier: Build_hdas2_php_test_1744714460690
+    properties:
+      ci:
+        codebase:
+          build:
+            type: PR
+            spec:
+              number: <+trigger.prNumber>
